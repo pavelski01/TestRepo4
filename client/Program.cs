@@ -1,15 +1,11 @@
 ﻿//#define DUMMY
-//#define UNRARY
-
+//#define UNARY
+//#define SERVER_STREAMING
 //#define CLIENT_STREAMING
 
-using Dummy;
 using Greet;
 using Grpc.Core;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace client
@@ -33,7 +29,7 @@ namespace client
             var client = new DummyService.DummyServiceClient(channel);
 #endif
 
-#if UNRARY
+#if UNARY
             var client = new GreetingService.GreetingServiceClient(channel);
             var greeting = new Greeting
             {
@@ -47,6 +43,22 @@ namespace client
             var response = client.Greet(request);
             Console.WriteLine(response.Result);
 #endif
+#if SERVER_STREAMING
+            var client = new GreetingService.GreetingServiceClient(channel);
+            var greeting = new Greeting
+            {
+                FirstName = "Bruce",
+                LastName = "Wayne"
+            };
+            var request = new GreetManyTimesRequest { Greeting = greeting };
+            var response = client.GreetManyTimes(request);
+
+            while (await response.ResponseStream.MoveNext())
+            {
+                Console.WriteLine(response.ResponseStream.Current.Result);
+                await Task.Delay(200);
+            }
+#endif
 #if CLIENT_STREAMING
             var client = new GreetingService.GreetingServiceClient(channel);
             var greeting = new Greeting
@@ -56,17 +68,16 @@ namespace client
             };
             var request = new LongGreetRequest { Greeting = greeting };
             var stream = client.LongGreet();
-            foreach (var i in Enumerable.Range(0, 10)) 
+            foreach (var _ in Enumerable.Range(0, 10)) 
             {
                 await stream.RequestStream.WriteAsync(request);
             }
             await stream.RequestStream.CompleteAsync();
             var response = await stream.ResponseAsync;
             Console.WriteLine(response.Result);
-
+#endif
             channel.ShutdownAsync().Wait();
             Console.ReadKey();
-#endif
         }
     }
 }

@@ -2,6 +2,7 @@
 //#define UNARY
 //#define SERVER_STREAMING
 //#define CLIENT_STREAMING
+#define BIDI_STREAMING
 
 using Greet;
 using Grpc.Core;
@@ -75,6 +76,35 @@ namespace client
             await stream.RequestStream.CompleteAsync();
             var response = await stream.ResponseAsync;
             Console.WriteLine(response.Result);
+#endif
+#if BIDI_STREAMING
+            var client = new GreetingService.GreetingServiceClient(channel);
+            var stream = client.GreetEveryone();
+            var responseReader = Task.Run(async () => 
+            { 
+                while (await stream.ResponseStream.MoveNext())
+                {
+                    Console.WriteLine("Received: " + stream.ResponseStream.Current.Result);
+                }
+            });
+            Greeting[] greetings =
+            {
+                new Greeting { FirstName = "Bruce", LastName = "Wayne" },
+                new Greeting { FirstName = "Luke", LastName = "Skywalker"  },
+                new Greeting { FirstName = "Tylor", LastName = "Swift"  }
+            };
+
+            foreach (var greeting in greetings)
+            {
+                Console.WriteLine("Sending: " + greeting.ToString());
+                await stream.RequestStream.WriteAsync(new GreetEveryoneRequest
+                {
+                    Greeting = greeting
+                });
+            }
+
+            await stream.RequestStream.CompleteAsync();
+            await responseReader;
 #endif
             channel.ShutdownAsync().Wait();
             Console.ReadKey();
